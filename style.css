@@ -29,18 +29,20 @@ body{ height:100%;padding: 0%;margin: 0%;}
     position: absolute;
     bottom:0%;
     width:300px;
-    margin: auto;
+    max-height: 90vh;
     color:white;
     margin-left:50px;
     padding:20px;
-    padding-top:0px;
-    padding-bottom: 0%;
+    padding-top:10px;
+    padding-bottom: 10px;
     background-color: rgba(0, 0, 0, 0.7);
     border:1px solid black;
     box-shadow: 5px 5px rgba(0, 0, 0, 0.5);
     border-top-left-radius: 7px;
     border-top-right-radius: 7px;
-    overflow: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .controls_panel .btn{
@@ -52,13 +54,22 @@ body{ height:100%;padding: 0%;margin: 0%;}
     width:90%;
     top:5%;
     left:5%;
-    height:90%;
+    height:80vh;
+    background-color: rgba(0, 0, 0, 0.95);
     background-repeat: no-repeat;
     overflow:scroll;
+    border-radius: 10px;
+}
+.algo_info .close_btn{
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+    z-index: 21;
 }
 .algo_info .block{
     width:100%;
-    height:100%;
+    height:80vh;
     background-color: rgba(0, 0, 0, 0.9);
     background-size: 100% 100%;
     min-height:700px;
@@ -85,8 +96,9 @@ body{ height:100%;padding: 0%;margin: 0%;}
     color:green;
 }
 .controls_panel_con{
-    height:auto;
+    flex: 1;
     max-height: 0px;
+    overflow-y: auto;
 }
 .select_algo, .hide_n_seek{
     color:white;

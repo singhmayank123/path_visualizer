@@ -21,11 +21,13 @@
                 <div class="ml-auto" style="cursor: pointer;" onclick="document.getElementById('instructions').style.display= 'none';"><i class="fa fa-times" aria-hidden="true" style="font-size:20px;"></i></div>
             </div>
         
-            &#9675; Click within the white grid and drag your mouse to draw obstacles.
+            &#9675; Click within the grid to place the <font color="#0d0">green</font> start node and <font color="#ff9166">red</font> end node.
             <br>
-            &#9675; Drag the <font color="#0d0">green</font> node to set the start position.
+            &#9675; Click within the white grid and drag your mouse to draw <font color="burlywood">brown</font> obstacles.
             <br>
-            &#9675; Drag the  <font color="#ff9166">red</font> node to set the end position.
+            &#9675; Drag the <font color="#0d0">green</font> node to change the start position.
+            <br>
+            &#9675; Drag the  <font color="#ff9166">red</font> node to change the end position.
             <br>
             &#9675; Choose an algorithm from the bottom-left panel.
             <br>
@@ -93,8 +95,8 @@
             <div class="post_search_info">
             </div>
             <div class="algo_info" style="display: none;">
-                <div style="float:right; margin-right:20px; margin-top:20px; cursor: pointer;" onclick="document.querySelector('.algo_info').style.display = 'none';">
-                    <i class="fa fa-times" aria-hidden="true" style="font-size:22px; color:white"></i>
+                <div class="close_btn" onclick="document.querySelector('.algo_info').style.display = 'none';">
+                    <i class="fa fa-times" aria-hidden="true" style="font-size:24px; color:white;"></i>
                 </div>
                 <div class="block"></div>
             </div>
@@ -151,14 +153,16 @@
             var explored_node = new Map(); 
             var w = 1920;
             var h = 1080;
-            var s_node = [15, 22];
-            var ps_node;
-            var pe_node;
-            var e_node = [15, 32];
+            var s_node = null;
+            var ps_node = null;
+            var pe_node = null;
+            var e_node = null;
             var prev_node = [-100, -100];
             var h_count = 0;
             var step = 30; 
-            var finalPath;
+            var finalPath = [];
+            var selection_mode = 1; // 1 = selecting start, 2 = selecting end, 0 = both selected
+            var nodes_selected = false;
             var canvasElementId = 'my_grid';
             var canvas = document.getElementById(canvasElementId);
             canvas.addEventListener('click', handleClick);
@@ -173,17 +177,24 @@
             var ctx = canvas.getContext('2d');
 
             function initialize_s_e_nodes(){
-                var y1 = s_node[0], x1 = s_node[1], y2 = e_node[0], x2 = e_node[1];
-                ctx.fillStyle = "green";
-                ctx.fillRect(x1 * step,y1 * step, step, step);
-                ctx.strokeStyle = "grey";
-                ctx.strokeRect(x1* step, y1 * step, step, step);
-
-                ctx.fillStyle = "red";
-                ctx.fillRect(x2 * step,
-                        y2* step, step, step);
-                ctx.strokeStyle = "grey";
-                ctx.strokeRect(x2 * step,y2 * step, step, step);
+                // Draw start node if selected
+                if(s_node) {
+                    var y1 = s_node[0], x1 = s_node[1];
+                    ctx.fillStyle = "green";
+                    ctx.fillRect(x1 * step,y1 * step, step, step);
+                    ctx.strokeStyle = "grey";
+                    ctx.strokeRect(x1* step, y1 * step, step, step);
+                }
+                
+                // Draw end node if selected
+                if(e_node) {
+                    var y2 = e_node[0], x2 = e_node[1];
+                    ctx.fillStyle = "red";
+                    ctx.fillRect(x2 * step,
+                            y2* step, step, step);
+                    ctx.strokeStyle = "grey";
+                    ctx.strokeRect(x2 * step,y2 * step, step, step);
+                }
             }
 
             var drawGrid = function(ctx, w, h, step) {
@@ -237,7 +248,8 @@
                         ctx.strokeRect(s_node[1] * step, s_node[0]* step, step, step);
                         ctx.strokeStyle = "grey";
                         ctx.strokeRect(s_node[1] * step, s_node[0]* step, step, step);
-                        printPath(finalPath);
+                        ps_node = [s_node[0], s_node[1]];
+                        if(finalPath && finalPath.length > 0) printPath(finalPath);
                         break;
                     case 2:
                         console.log("end_block drag ");
@@ -264,7 +276,8 @@
                         ctx.strokeRect(e_node[1] * step, e_node[0]* step, step, step);
                         ctx.strokeStyle = "grey";
                         ctx.strokeRect(e_node[1] * step, e_node[0]* step, step, step);
-                        printPath(finalPath);
+                        pe_node = [e_node[0], e_node[1]];
+                        if(finalPath && finalPath.length > 0) printPath(finalPath);
                         break;
                 }
             }
@@ -279,8 +292,16 @@
                 node_map.clear();
                 finalPath = [];
                 explored_node.clear();
+                s_node = null;
+                e_node = null;
+                ps_node = null;
+                pe_node = null;
+                selection_mode = 1;
+                nodes_selected = false;
+                disableSearchButtons();
                 ctx.clearRect(0, 0, w, h);
                 drawGrid(ctx, w, h, step);
+                showSelectionPrompt();
             }
 
             function clearExploredWalls(){
@@ -375,6 +396,11 @@
             function printPath(finalpath){
                 path_length = 0;
                 finalPath = finalpath;
+                // Handle empty or invalid paths
+                if(!finalpath || finalpath.length === 0 || !ps_node || !pe_node){
+                    printPostSearchData(0);
+                    return;
+                }
                 if(finalpath[0][0] === ps_node[0] || finalpath[0][1] === ps_node[1])
                     path_length++;
                 else path_length += 1.414;
@@ -405,15 +431,62 @@
             }
 
             function handleClick(e) {
-                if(!curr_process)
+                var col = Math.floor(e.offsetX / step);
+                var row = Math.floor(e.offsetY / step);
+                
+                // If in selection mode, allow selecting start and end nodes
+                if(selection_mode === 1 && !curr_process) {
+                    // Selecting start node
+                    s_node = [row, col];
+                    ps_node = [row, col];
+                    ctx.clearRect(0, 0, w, h);
+                    drawGrid(ctx, w, h, step);
+                    selection_mode = 2;
+                    showSelectionPrompt();
+                } 
+                else if(selection_mode === 2 && !curr_process) {
+                    // Selecting end node
+                    if(row === s_node[0] && col === s_node[1]) {
+                        alert("End node must be different from start node!");
+                        return;
+                    }
+                    e_node = [row, col];
+                    pe_node = [row, col];
+                    ctx.clearRect(0, 0, w, h);
+                    drawGrid(ctx, w, h, step);
+                    selection_mode = 0;
+                    nodes_selected = true;
+                    enableSearchButtons();
+                    showSelectionComplete();
+                }
+                // Normal drawing mode after nodes are selected
+                else if(selection_mode === 0 && !curr_process) {
                     colorBlock(e.offsetX, e.offsetY, 1);
+                }
+            }
+            
+            function showSelectionPrompt() {
+                var msg = selection_mode === 1 ? "Click to place START node (Green)" : "Click to place END node (Red)";
+                $('.post_search_info').html('<span style="color: white; font-weight: bold;">' + msg + '</span>');
+            }
+            
+            function showSelectionComplete() {
+                $('.post_search_info').html('<span style="color: lightgreen; font-weight: bold;">Nodes selected! You can now draw obstacles and start searching.</span>');
+            }
+            
+            function enableSearchButtons() {
+                $('.btn-success').prop('disabled', false);
+            }
+            
+            function disableSearchButtons() {
+                $('.btn-success').prop('disabled', true);
             }
 
             canvas.onmousedown = function(event) {
                 var h_count = 0;
                 var flag = 0;
-                var col = Math.floor(event.pageX / step);
-                var row = Math.floor(event.pageY / step);
+                var col = Math.floor(event.offsetX / step);
+                var row = Math.floor(event.offsetY / step);
                 if(col == s_node[1] && row == s_node[0]){
                     flag = 1;
                 }
@@ -423,16 +496,16 @@
 
                 function onMouseMove(event) {
                     h_count++;
-                    var col = Math.floor(event.pageX / step);
-                    var row = Math.floor(event.pageY / step);
+                    var col = Math.floor(event.offsetX / step);
+                    var row = Math.floor(event.offsetY / step);
                     if(!node_map.has(row + "," + col) && (flag == 1 || flag == 2) && (row != e_node[0] || col != e_node[1]) && (row != s_node[0] || col != s_node[1])){
                         if(flag == 1 && !curr_process)
-                            move_start_end(event.pageX, event.pageY, flag);
+                            move_start_end(event.offsetX, event.offsetY, flag);
                         else if(flag == 2 && !curr_process) 
-                            move_start_end(event.pageX, event.pageY, flag);
+                            move_start_end(event.offsetX, event.offsetY, flag);
                     }
                     else if(!curr_process)
-                        colorBlock(event.pageX, event.pageY, 2);
+                        colorBlock(event.offsetX, event.offsetY, 2);
                 }
 
                 // (2) move thecanvas on mousemove
@@ -476,7 +549,7 @@
                 clearInterval(curr_process);
                 curr_process = null;
                 search_mode = m;
-                finalPath = [[]];
+                finalPath = [];
                 explored_node.clear();
                 clearExploredWalls();
                 switch(search_mode){
@@ -515,6 +588,10 @@
 
             }
             drawGrid(ctx, w, h, step);
+            
+            // Initialize: disable search buttons and show selection prompt
+            disableSearchButtons();
+            showSelectionPrompt();
         </script>
     </body>
 </html>
